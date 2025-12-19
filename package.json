@@ -1,0 +1,13 @@
+{
+  "name": "violin-practice-assistant",
+  "version": "1.0.0",
+  "scripts": {
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && ./gradlew build",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && ./gradlew bootRun",
+    "dev:frontend": "cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
