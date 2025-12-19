@@ -24,15 +24,15 @@
 本项目采用 **前后端分离 (B/S)** 架构，并在本地环境中运行。
 
 ```mermaid
-graph TD
-    User["用户 (浏览器):] -->|HTTP 请求| Frontend["前端 (Vue3 + OSMD)"]
-    Frontend -->|API 调用| Backend["后端 (Spring Boot)"]
-    
+flowchart TD
+    User["用户 (浏览器)"] -->|"HTTP 请求"| Frontend["前端 (Vue3 + OSMD)"]
+    Frontend -->|"API 调用"| Backend["后端 (Spring Boot)"]
+
     subgraph "Local Environment (本地机器)"
-        Frontend -- 渲染/播放 --> AudioEngine[Web Audio API / Tone.js]
-        Backend -->|读写| DB[(H2 Database / File Mode)]
-        Backend -->|存储/读取| FileSys[本地文件系统 (Images/XML)]
-        Backend -->|CLI 调用| OMR[Audiveris Engine (Java Process)]
+        Frontend -- "渲染/播放" --> AudioEngine["Web Audio API / Tone.js"]
+        Backend -->|"读写"| DB[("H2 Database / File Mode")]
+        Backend -->|"存储/读取"| FileSys["本地文件系统 (Images/XML)"]
+        Backend -->|"CLI 调用"| OMR["Audiveris Engine (Java Process)"]
     end
 ```
 
