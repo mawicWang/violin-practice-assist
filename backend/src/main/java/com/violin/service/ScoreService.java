@@ -57,7 +57,38 @@ public class ScoreService {
     }
 
     private void mockOmrProcess(Score score) {
-        score.setStatus("PROCESSING_MOCK");
+        // Simulate OMR processing delay
+        new Thread(() -> {
+            try {
+                Thread.sleep(2000); // Simulate processing time
+
+                // Copy sample XML to storage
+                String newFileName = System.currentTimeMillis() + "_mock_result.xml";
+                Path targetPath = Paths.get(storageLocation).resolve(newFileName);
+
+                try (var inputStream = getClass().getResourceAsStream("/sample.xml")) {
+                    if (inputStream != null) {
+                        Files.copy(inputStream, targetPath);
+
+                        score.setMusicXmlPath(targetPath.toString());
+                        score.setStatus("READY");
+                        scoreRepository.save(score);
+                    } else {
+                         System.err.println("Sample XML not found!");
+                         score.setStatus("FAILED");
+                         scoreRepository.save(score);
+                    }
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                score.setStatus("FAILED");
+                scoreRepository.save(score);
+            }
+        }).start();
+
+        // Initial status
+        score.setStatus("PROCESSING");
     }
 
     public String getXmlContent(Long id) throws IOException {
