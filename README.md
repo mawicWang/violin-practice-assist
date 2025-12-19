@@ -25,8 +25,8 @@
 
 ```mermaid
 graph TD
-    User[用户 (浏览器)] -->|HTTP 请求| Frontend[前端 (Vue3 + OSMD)]
-    Frontend -->|API 调用| Backend[后端 (Spring Boot)]
+    User["用户 (浏览器):] -->|HTTP 请求| Frontend["前端 (Vue3 + OSMD)"]
+    Frontend -->|API 调用| Backend["后端 (Spring Boot)"]
     
     subgraph "Local Environment (本地机器)"
         Frontend -- 渲染/播放 --> AudioEngine[Web Audio API / Tone.js]
