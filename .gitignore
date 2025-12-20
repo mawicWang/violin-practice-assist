@@ -52,3 +52,4 @@ server.log
 # App Data
 backend/data/
 storage/
+bin/
