@@ -9,10 +9,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+
 
 @RestController
 @RequestMapping("/api/scores")
 @CrossOrigin(origins = "*")
+@Slf4j
 public class ScoreController {
 
     @Autowired
@@ -51,6 +54,7 @@ public class ScoreController {
                 return ResponseEntity.notFound().build();
             }
         } catch (IOException e) {
+            log.error("Error getting score content", e);
             return ResponseEntity.internalServerError().build();
         }
     }
