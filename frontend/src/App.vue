@@ -2,7 +2,7 @@
   <div class="app-container">
     <el-container>
       <el-header>
-        <h1>Violin Practice Assistant</h1>
+        <h1>Violin Practice Assistant v2.0</h1>
       </el-header>
       <el-main>
         <div v-if="!currentScoreId">

@@ -15,17 +15,13 @@ public class Score {
 
     private String title;
 
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String abcContent;
+
     private String originalImagePath;
 
-    private String musicXmlPath;
-
     private LocalDateTime createdAt;
-
-    private LocalDateTime lastPlayedAt;
-
-    private String tags;
-
-    private String status;
 
     @PrePersist
     protected void onCreate() {
