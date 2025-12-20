@@ -19,8 +19,12 @@ This is the "Violin Practice Assistant" project.
     -   Backend port: 8080
     -   Frontend port: 5173
 4.  **Filesystem**:
-    -   Mock OMR process for now.
+    -   **OMR**: Using `oemer` and `xml2abc.py`.
     -   Use `storage/` for file uploads.
 
 ## Plan Updates
--   Update plan before submitting if changes occur.
+-   **v2.0 Implementation (Current)**:
+    -   Replaced manual OMR mock with `oemer` + `xml2abc` pipeline.
+    -   Frontend upgraded to use `abcjs` and `codemirror` for text-based music editing.
+    -   Backend stores ABC text content instead of just XML paths.
+    -   Status: Core v2.0 structure implemented. OMR pipeline connected.

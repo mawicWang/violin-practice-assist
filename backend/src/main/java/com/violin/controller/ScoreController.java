@@ -33,28 +33,19 @@ public class ScoreController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/save")
+    public ResponseEntity<Score> saveScore(@RequestBody Score score) {
+        return ResponseEntity.ok(scoreService.saveScore(score));
+    }
+
     @PostMapping("/upload")
     public ResponseEntity<Score> uploadScore(@RequestParam("title") String title,
                                              @RequestParam("file") MultipartFile file) {
         try {
-            Score score = scoreService.uploadScore(title, file);
+            Score score = scoreService.uploadAndRecognize(title, file);
             return ResponseEntity.ok(score);
         } catch (IOException e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    @GetMapping("/{id}/content")
-    public ResponseEntity<String> getScoreContent(@PathVariable Long id) {
-        try {
-            String content = scoreService.getXmlContent(id);
-            if (content != null) {
-                return ResponseEntity.ok(content);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (IOException e) {
-            log.error("Error getting score content", e);
+            log.error("Upload failed", e);
             return ResponseEntity.internalServerError().build();
         }
     }

@@ -1,21 +1,15 @@
 <template>
   <div class="score-viewer">
-    <div class="controls">
-      <el-button @click="play" :disabled="!isReady">Play</el-button>
-      <el-button @click="pause" :disabled="!isReady">Pause</el-button>
-      <el-button @click="stop" :disabled="!isReady">Stop</el-button>
-      <span>BPM: </span>
-      <el-input-number v-model="bpm" @change="updateBpm" :min="30" :max="300" />
-    </div>
-    <div ref="scoreContainer" class="score-container"></div>
+    <div v-if="loading">Loading score...</div>
+    <div v-else-if="error">Error: {{ error }}</div>
+    <AbcEditor v-else :initial-content="abcContent" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
-import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
-import OsmdAudioPlayer from 'osmd-audio-player';
+import { ref, watch, onMounted } from 'vue';
 import axios from 'axios';
+import AbcEditor from './AbcEditor.vue';
 
 const props = defineProps({
   scoreId: {
@@ -24,95 +18,43 @@ const props = defineProps({
   }
 });
 
-const scoreContainer = ref(null);
-const isReady = ref(false);
-const bpm = ref(100);
+const abcContent = ref('');
+const loading = ref(true);
+const error = ref(null);
 
-let osmd = null;
-let audioPlayer = null;
+const loadScore = async () => {
+    if (!props.scoreId) return;
 
-onMounted(async () => {
-  if (scoreContainer.value) {
-    osmd = new OpenSheetMusicDisplay(scoreContainer.value, {
-      autoResize: true,
-      backend: 'svg',
-      drawTitle: true,
-    });
-
-    audioPlayer = new OsmdAudioPlayer();
-
-    await loadScore();
-  }
-});
-
-onBeforeUnmount(() => {
-    if (audioPlayer) {
-        audioPlayer.stop();
+    try {
+        loading.value = true;
+        error.value = null;
+        const response = await axios.get(`/api/scores/${props.scoreId}`);
+        // Ensure we handle both cases where abcContent might be direct or in the object
+        if (response.data && response.data.abcContent) {
+            abcContent.value = response.data.abcContent;
+        } else {
+             // Fallback or error if no content
+             abcContent.value = "T: No Content\nK: C\n";
+        }
+    } catch (err) {
+        console.error("Failed to fetch score", err);
+        error.value = "Failed to load score content.";
+    } finally {
+        loading.value = false;
     }
+};
+
+onMounted(() => {
+    loadScore();
 });
 
 watch(() => props.scoreId, () => {
-  loadScore();
+    loadScore();
 });
-
-const loadScore = async () => {
-  if (!props.scoreId) return;
-
-  try {
-    isReady.value = false;
-    const response = await axios.get(`/api/scores/${props.scoreId}/content`);
-    const xmlContent = response.data;
-
-    await osmd.load(xmlContent);
-    osmd.render();
-
-    await audioPlayer.loadScore(osmd);
-    audioPlayer.setBpm(bpm.value);
-
-    isReady.value = true;
-  } catch (error) {
-    console.error("Failed to load score:", error);
-  }
-};
-
-const play = () => {
-  if (audioPlayer) {
-      if (audioPlayer.state === 'STOPPED' || audioPlayer.state === 'PAUSED') {
-          audioPlayer.play();
-      }
-  }
-};
-
-const pause = () => {
-  if (audioPlayer) audioPlayer.pause();
-};
-
-const stop = () => {
-  if (audioPlayer) audioPlayer.stop();
-};
-
-const updateBpm = (val) => {
-    if (audioPlayer) {
-        audioPlayer.setBpm(val);
-    }
-}
-
 </script>
 
 <style scoped>
 .score-viewer {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.score-container {
-  width: 100%;
-  min-height: 500px;
-  border: 1px solid #ccc;
-}
-.controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
+    width: 100%;
 }
 </style>

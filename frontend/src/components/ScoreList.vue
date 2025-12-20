@@ -1,14 +1,13 @@
 <template>
-  <div class="score-list">
+  <div class="score-list-container">
     <h3>My Scores</h3>
     <el-table :data="scores" style="width: 100%" @row-click="handleRowClick">
       <el-table-column prop="id" label="ID" width="50" />
       <el-table-column prop="title" label="Title" />
-      <el-table-column prop="status" label="Status" />
       <el-table-column prop="createdAt" label="Created At" />
       <el-table-column label="Actions">
         <template #default="scope">
-          <el-button size="small" @click="handlePlay(scope.row)" :disabled="scope.row.status !== 'READY'">
+          <el-button size="small" @click="handlePlay(scope.row)">
             Practice
           </el-button>
         </template>
