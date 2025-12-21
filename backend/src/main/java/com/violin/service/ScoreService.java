@@ -81,6 +81,7 @@ public class ScoreService {
 
     private void processImage(Long scoreId, String filePath) {
         try {
+            // Log processing start
             log.info("Starting processing for score {}, file: {}", scoreId, filePath);
             Path tempDir = Files.createTempDirectory("omr_" + scoreId);
             String lowerPath = filePath.toLowerCase();
