@@ -28,3 +28,4 @@ This is the "Violin Practice Assistant" project.
     -   Frontend upgraded to use `abcjs` and `codemirror` for text-based music editing.
     -   Backend stores ABC text content instead of just XML paths.
     -   Status: Core v2.0 structure implemented. OMR pipeline connected.
+    -   **Fix**: Corrected `xml2abc` output handling to prevent "Is a directory" error.
