@@ -110,8 +110,8 @@ public class ScoreService {
             File musicXmlFile = musicXmlFiles[0];
 
             // 2. Run xml2abc.py
-            // python tools/xml2abc.py -o <output.abc> <input.musicxml>
-            String abcPath = tempDir.resolve("output.abc").toString();
+            // python tools/xml2abc.py -o <output_dir> <input.musicxml>
+            // Note: xml2abc -o expects a directory and generates a file with .abc extension
 
             // Resolve tool path (handle running from backend dir or root)
             String toolScript = "tools/xml2abc.py";
@@ -119,7 +119,7 @@ public class ScoreService {
                 toolScript = "../" + toolScript;
             }
 
-            ProcessBuilder abcPb = new ProcessBuilder("python", toolScript, "-o", abcPath, musicXmlFile.getAbsolutePath());
+            ProcessBuilder abcPb = new ProcessBuilder("python", toolScript, "-o", tempDir.toString(), musicXmlFile.getAbsolutePath());
             abcPb.redirectErrorStream(true);
             Process abcProcess = abcPb.start();
              // Read output to prevent blocking
@@ -132,7 +132,31 @@ public class ScoreService {
                  return;
             }
 
-            String abcContent = Files.readString(Paths.get(abcPath));
+            // Determine the generated abc file path
+            // xml2abc uses os.path.splitext to replace extension with .abc
+            String xmlFilename = musicXmlFile.getName();
+            int lastDotIndex = xmlFilename.lastIndexOf('.');
+            String abcFilename;
+            if (lastDotIndex != -1) {
+                abcFilename = xmlFilename.substring(0, lastDotIndex) + ".abc";
+            } else {
+                abcFilename = xmlFilename + ".abc";
+            }
+            Path abcPath = tempDir.resolve(abcFilename);
+
+            if (!Files.exists(abcPath)) {
+                // Fallback: list .abc files in tempDir
+                File[] abcFiles = tempDir.toFile().listFiles((d, name) -> name.endsWith(".abc"));
+                if (abcFiles != null && abcFiles.length > 0) {
+                     abcPath = abcFiles[0].toPath();
+                } else {
+                     log.error("No ABC output found in {}", tempDir);
+                     updateScoreContent(scoreId, "T: Error\n% OMR processing failed (no abc output).");
+                     return;
+                }
+            }
+
+            String abcContent = Files.readString(abcPath);
             updateScoreContent(scoreId, abcContent);
             log.info("OMR finished for score {}", scoreId);
 
