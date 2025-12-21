@@ -44,6 +44,9 @@ package-lock.json
 .settings/
 .DS_Store
 
+# python
+.venv
+
 # Temporary
 /home/jules/verification/
 *.png
