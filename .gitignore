@@ -49,7 +49,7 @@ package-lock.json
 
 # Temporary
 /home/jules/verification/
-*.png
+# *.png
 server.log
 
 # App Data
