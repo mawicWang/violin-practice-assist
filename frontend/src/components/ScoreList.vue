@@ -10,6 +10,9 @@
           <el-button size="small" @click="handlePlay(scope.row)">
             Practice
           </el-button>
+          <el-button size="small" type="danger" @click="handleDelete(scope.row)">
+            Delete
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -38,6 +41,17 @@ const handleRowClick = (row) => {
 
 const handlePlay = (score) => {
     emit('select-score', score.id);
+};
+
+const handleDelete = async (score) => {
+  if (confirm('Are you sure you want to delete this score?')) {
+    try {
+      await axios.delete(`/api/scores/${score.id}`);
+      fetchScores();
+    } catch (error) {
+      console.error("Failed to delete score", error);
+    }
+  }
 };
 
 onMounted(() => {
