@@ -39,6 +39,22 @@ public class ScoreService {
         return scoreRepository.save(score);
     }
 
+    public void deleteScore(Long id) {
+        Optional<Score> scoreOpt = scoreRepository.findById(id);
+        if (scoreOpt.isPresent()) {
+            Score score = scoreOpt.get();
+            // Delete file
+            if (score.getOriginalImagePath() != null) {
+                try {
+                    Files.deleteIfExists(Paths.get(score.getOriginalImagePath()));
+                } catch (IOException e) {
+                    log.error("Failed to delete file: " + score.getOriginalImagePath(), e);
+                }
+            }
+            scoreRepository.deleteById(id);
+        }
+    }
+
     public Score uploadAndRecognize(String title, MultipartFile file) throws IOException {
         Path uploadPath = Paths.get(storageLocation);
         if (!Files.exists(uploadPath)) {

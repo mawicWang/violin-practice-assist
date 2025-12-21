@@ -38,6 +38,12 @@ public class ScoreController {
         return ResponseEntity.ok(scoreService.saveScore(score));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteScore(@PathVariable Long id) {
+        scoreService.deleteScore(id);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/upload")
     public ResponseEntity<Score> uploadScore(@RequestParam("title") String title,
                                              @RequestParam("file") MultipartFile file) {
