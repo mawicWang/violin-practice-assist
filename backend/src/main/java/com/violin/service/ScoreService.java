@@ -24,6 +24,9 @@ public class ScoreService {
     @Autowired
     private ScoreRepository scoreRepository;
 
+    @Autowired
+    private ProcessExecutor processExecutor;
+
     @Value("${app.storage.location}")
     private String storageLocation;
 
@@ -79,62 +82,68 @@ public class ScoreService {
         return score;
     }
 
-    private void processImage(Long scoreId, String imagePath) {
+    private void processImage(Long scoreId, String filePath) {
         try {
-            log.info("Starting OMR for score {}", scoreId);
+            log.info("Starting processing for score {}, file: {}", scoreId, filePath);
             Path tempDir = Files.createTempDirectory("omr_" + scoreId);
+            String lowerPath = filePath.toLowerCase();
 
-            // 1. Run oemer
-            // oemer <img_path> -o <output_dir>
-            ProcessBuilder oemerPb = new ProcessBuilder("oemer", imagePath, "-o", tempDir.toString());
-            oemerPb.redirectErrorStream(true);
-            Process oemerProcess = oemerPb.start();
-            // Read output to prevent blocking
-            oemerProcess.getInputStream().transferTo(System.out);
-            boolean oemerFinished = oemerProcess.waitFor(120, TimeUnit.SECONDS);
+            File musicXmlFile = null;
 
-            if (!oemerFinished || oemerProcess.exitValue() != 0) {
-                 log.error("Oemer failed or timed out");
-                 updateScoreContent(scoreId, "T: Error\n% OMR processing failed (oemer).");
-                 return;
-            }
-
-            // Oemer outputs a file ending with .musicxml in the output directory
-            // The filename is usually the image filename + .musicxml (but checking dir is safer)
-            File[] musicXmlFiles = tempDir.toFile().listFiles((d, name) -> name.endsWith(".musicxml"));
-            if (musicXmlFiles == null || musicXmlFiles.length == 0) {
-                log.error("No MusicXML output found in {}", tempDir);
-                updateScoreContent(scoreId, "T: Error\n% OMR processing failed (no output).");
+            if (lowerPath.endsWith(".abc")) {
+                // Direct ABC upload
+                String abcContent = Files.readString(Paths.get(filePath));
+                updateScoreContent(scoreId, abcContent);
+                log.info("ABC loaded directly for score {}", scoreId);
                 return;
+            } else if (lowerPath.endsWith(".xml") || lowerPath.endsWith(".musicxml")) {
+                // Direct MusicXML upload
+                musicXmlFile = new File(filePath);
+            } else {
+                // Image upload - run OMR
+                // 1. Run oemer
+                // oemer <img_path> -o <output_dir>
+                int oemerExitCode = processExecutor.execute(List.of("oemer", filePath, "-o", tempDir.toString()), 120);
+
+                if (oemerExitCode != 0) {
+                     log.error("Oemer failed or timed out");
+                     updateScoreContent(scoreId, "T: Error\n% OMR processing failed (oemer).");
+                     return;
+                }
+
+                // Oemer outputs a file ending with .musicxml in the output directory
+                File[] musicXmlFiles = tempDir.toFile().listFiles((d, name) -> name.endsWith(".musicxml"));
+                if (musicXmlFiles == null || musicXmlFiles.length == 0) {
+                    log.error("No MusicXML output found in {}", tempDir);
+                    updateScoreContent(scoreId, "T: Error\n% OMR processing failed (no output).");
+                    return;
+                }
+                musicXmlFile = musicXmlFiles[0];
             }
-            File musicXmlFile = musicXmlFiles[0];
 
-            // 2. Run xml2abc.py
-            // python tools/xml2abc.py -o <output.abc> <input.musicxml>
-            String abcPath = tempDir.resolve("output.abc").toString();
+            // 2. Run xml2abc.py (if we have a MusicXML file from upload or OMR)
+            if (musicXmlFile != null) {
+                // python tools/xml2abc.py -o <output.abc> <input.musicxml>
+                String abcPath = tempDir.resolve("output.abc").toString();
 
-            // Resolve tool path (handle running from backend dir or root)
-            String toolScript = "tools/xml2abc.py";
-            if (!new File(toolScript).exists() && new File("../" + toolScript).exists()) {
-                toolScript = "../" + toolScript;
+                // Resolve tool path (handle running from backend dir or root)
+                String toolScript = "tools/xml2abc.py";
+                if (!new File(toolScript).exists() && new File("../" + toolScript).exists()) {
+                    toolScript = "../" + toolScript;
+                }
+
+                int abcExitCode = processExecutor.execute(List.of("python", toolScript, "-o", abcPath, musicXmlFile.getAbsolutePath()), 30);
+
+                if (abcExitCode != 0) {
+                    log.error("xml2abc failed");
+                     updateScoreContent(scoreId, "T: Error\n% OMR processing failed (xml2abc).");
+                     return;
+                }
+
+                String abcContent = Files.readString(Paths.get(abcPath));
+                updateScoreContent(scoreId, abcContent);
+                log.info("Conversion finished for score {}", scoreId);
             }
-
-            ProcessBuilder abcPb = new ProcessBuilder("python", toolScript, "-o", abcPath, musicXmlFile.getAbsolutePath());
-            abcPb.redirectErrorStream(true);
-            Process abcProcess = abcPb.start();
-             // Read output to prevent blocking
-            abcProcess.getInputStream().transferTo(System.out);
-            boolean abcFinished = abcProcess.waitFor(30, TimeUnit.SECONDS);
-
-            if (!abcFinished || abcProcess.exitValue() != 0) {
-                log.error("xml2abc failed");
-                 updateScoreContent(scoreId, "T: Error\n% OMR processing failed (xml2abc).");
-                 return;
-            }
-
-            String abcContent = Files.readString(Paths.get(abcPath));
-            updateScoreContent(scoreId, abcContent);
-            log.info("OMR finished for score {}", scoreId);
 
             // Cleanup temp dir (optional, maybe keep for debug)
             // FileUtils.deleteDirectory(tempDir.toFile());

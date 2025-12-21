@@ -27,4 +27,5 @@ This is the "Violin Practice Assistant" project.
     -   Replaced manual OMR mock with `oemer` + `xml2abc` pipeline.
     -   Frontend upgraded to use `abcjs` and `codemirror` for text-based music editing.
     -   Backend stores ABC text content instead of just XML paths.
-    -   Status: Core v2.0 structure implemented. OMR pipeline connected.
+    -   **Update**: Fixed direct upload of XML/MusicXML files by bypassing `oemer` and using `xml2abc` directly. Also added support for direct ABC file uploads.
+    -   Status: Core v2.0 structure implemented. OMR pipeline connected. Direct file upload supported.
