@@ -92,8 +92,11 @@ class ScoreServiceProcessingTest {
             }
             if (command.get(0).equals("python")) {
                 // xml2abc
-                String outFile = command.get(3);
-                Files.writeString(Path.of(outFile), "X:1\nT:Test Score\nK:C\nC D E F|");
+                // cmd: python tools/xml2abc.py -o <dir> <input>
+                String outDir = command.get(3);
+                // The input file was "output.musicxml" created in previous step
+                File abcFile = new File(outDir, "output.abc");
+                Files.writeString(abcFile.toPath(), "X:1\nT:Test Score\nK:C\nC D E F|");
                 return 0;
             }
             return -1;
@@ -139,12 +142,14 @@ class ScoreServiceProcessingTest {
             }
             if (command.get(0).equals("python")) {
                 // xml2abc
-                String outFile = command.get(3);
+                String outDir = command.get(3);
                 // Ensure the input file passed is the uploaded one
                 String inFile = command.get(4);
                 assertEquals(new File(filePath).getAbsolutePath(), inFile, "Input to xml2abc should be the uploaded file");
 
-                Files.writeString(Path.of(outFile), "X:1\nT:XML Score\n");
+                // The input file is "test_score.musicxml", so output should be "test_score.abc"
+                File abcFile = new File(outDir, "test_score.abc");
+                Files.writeString(abcFile.toPath(), "X:1\nT:XML Score\n");
                 return 0;
             }
             return -1;

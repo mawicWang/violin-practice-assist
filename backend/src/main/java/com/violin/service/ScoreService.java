@@ -6,9 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import java.util.concurrent.TimeUnit;
-import java.io.File;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,7 +45,6 @@ public class ScoreService {
         Optional<Score> scoreOpt = scoreRepository.findById(id);
         if (scoreOpt.isPresent()) {
             Score score = scoreOpt.get();
-            // Delete file
             if (score.getOriginalImagePath() != null) {
                 try {
                     Files.deleteIfExists(Paths.get(score.getOriginalImagePath()));
@@ -71,13 +69,12 @@ public class ScoreService {
         Score score = new Score();
         score.setTitle(title);
         score.setOriginalImagePath(filePath.toString());
-        score.setAbcContent("T: Processing...\nM: 4/4\nK: C\n% Please wait for OMR processing..."); // Temporary content
+        score.setAbcContent("T: Processing...\nM: 4/4\nK: C\n% Please wait for OMR processing...");
         score = scoreRepository.save(score);
 
-        // Run OMR in background
         final Long scoreId = score.getId();
-        final String imagePath = filePath.toAbsolutePath().toString();
-        new Thread(() -> processImage(scoreId, imagePath)).start();
+        final String savedFilePath = filePath.toAbsolutePath().toString();
+        new Thread(() -> processImage(scoreId, savedFilePath)).start();
 
         return score;
     }
@@ -101,8 +98,6 @@ public class ScoreService {
                 musicXmlFile = new File(filePath);
             } else {
                 // Image upload - run OMR
-                // 1. Run oemer
-                // oemer <img_path> -o <output_dir>
                 int oemerExitCode = processExecutor.execute(List.of("oemer", filePath, "-o", tempDir.toString()), 120);
 
                 if (oemerExitCode != 0) {
@@ -111,7 +106,6 @@ public class ScoreService {
                      return;
                 }
 
-                // Oemer outputs a file ending with .musicxml in the output directory
                 File[] musicXmlFiles = tempDir.toFile().listFiles((d, name) -> name.endsWith(".musicxml"));
                 if (musicXmlFiles == null || musicXmlFiles.length == 0) {
                     log.error("No MusicXML output found in {}", tempDir);
@@ -121,18 +115,14 @@ public class ScoreService {
                 musicXmlFile = musicXmlFiles[0];
             }
 
-            // 2. Run xml2abc.py (if we have a MusicXML file from upload or OMR)
             if (musicXmlFile != null) {
-                // python tools/xml2abc.py -o <output.abc> <input.musicxml>
-                String abcPath = tempDir.resolve("output.abc").toString();
-
-                // Resolve tool path (handle running from backend dir or root)
                 String toolScript = "tools/xml2abc.py";
                 if (!new File(toolScript).exists() && new File("../" + toolScript).exists()) {
                     toolScript = "../" + toolScript;
                 }
 
-                int abcExitCode = processExecutor.execute(List.of("python", toolScript, "-o", abcPath, musicXmlFile.getAbsolutePath()), 30);
+                // xml2abc -o <dir>
+                int abcExitCode = processExecutor.execute(List.of("python", toolScript, "-o", tempDir.toString(), musicXmlFile.getAbsolutePath()), 30);
 
                 if (abcExitCode != 0) {
                     log.error("xml2abc failed");
@@ -140,13 +130,32 @@ public class ScoreService {
                      return;
                 }
 
-                String abcContent = Files.readString(Paths.get(abcPath));
+                // Determine the generated abc file path
+                String xmlFilename = musicXmlFile.getName();
+                int lastDotIndex = xmlFilename.lastIndexOf('.');
+                String abcFilename;
+                if (lastDotIndex != -1) {
+                    abcFilename = xmlFilename.substring(0, lastDotIndex) + ".abc";
+                } else {
+                    abcFilename = xmlFilename + ".abc";
+                }
+                Path abcPath = tempDir.resolve(abcFilename);
+
+                if (!Files.exists(abcPath)) {
+                    File[] abcFiles = tempDir.toFile().listFiles((d, name) -> name.endsWith(".abc"));
+                    if (abcFiles != null && abcFiles.length > 0) {
+                         abcPath = abcFiles[0].toPath();
+                    } else {
+                         log.error("No ABC output found in {}", tempDir);
+                         updateScoreContent(scoreId, "T: Error\n% OMR processing failed (no abc output).");
+                         return;
+                    }
+                }
+
+                String abcContent = Files.readString(abcPath);
                 updateScoreContent(scoreId, abcContent);
                 log.info("Conversion finished for score {}", scoreId);
             }
-
-            // Cleanup temp dir (optional, maybe keep for debug)
-            // FileUtils.deleteDirectory(tempDir.toFile());
 
         } catch (Exception e) {
             log.error("OMR Process Exception", e);
