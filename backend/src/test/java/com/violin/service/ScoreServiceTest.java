@@ -7,15 +7,19 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 class ScoreServiceTest {
 
@@ -25,11 +29,14 @@ class ScoreServiceTest {
     @InjectMocks
     private ScoreService scoreService;
 
+    private Path tempStorage;
+
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         MockitoAnnotations.openMocks(this);
-        // Set storage location just in case it is needed, though deleteScore doesn't use it directly from properties
-        ReflectionTestUtils.setField(scoreService, "storageLocation", "storage");
+        // Set storage location to a temp dir
+        tempStorage = Files.createTempDirectory("test-storage");
+        ReflectionTestUtils.setField(scoreService, "storageLocation", tempStorage.toString());
     }
 
     @Test
@@ -62,5 +69,60 @@ class ScoreServiceTest {
         scoreService.deleteScore(scoreId);
 
         verify(scoreRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void testUploadAbcFile() throws IOException {
+        String abcContent = "X:1\nT:Test Score\nK:C\nCDEFG|";
+        MockMultipartFile file = new MockMultipartFile("file", "test.abc", "text/plain", abcContent.getBytes(StandardCharsets.UTF_8));
+
+        when(scoreRepository.save(any(Score.class))).thenAnswer(invocation -> {
+            Score s = invocation.getArgument(0);
+            s.setId(1L);
+            return s;
+        });
+
+        Score result = scoreService.uploadAndRecognize("Test Title", file);
+
+        assertNotNull(result);
+        assertEquals("Test Title", result.getTitle());
+        // For ABC files, the content should be read directly
+        assertEquals(abcContent, result.getAbcContent());
+
+        verify(scoreRepository, atLeastOnce()).save(any(Score.class));
+    }
+
+    @Test
+    void testUploadImageFile() throws IOException {
+        MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", "fake image content".getBytes());
+
+        when(scoreRepository.save(any(Score.class))).thenAnswer(invocation -> {
+            Score s = invocation.getArgument(0);
+            s.setId(1L);
+            return s;
+        });
+
+        Score result = scoreService.uploadAndRecognize("Image Title", file);
+
+        assertNotNull(result);
+        assertTrue(result.getAbcContent().startsWith("T: Processing..."));
+        assertTrue(result.getAbcContent().contains("OMR processing"));
+    }
+
+    @Test
+    void testUploadMusicXmlFile() throws IOException {
+        MockMultipartFile file = new MockMultipartFile("file", "test.musicxml", "text/xml", "fake xml content".getBytes());
+
+        when(scoreRepository.save(any(Score.class))).thenAnswer(invocation -> {
+            Score s = invocation.getArgument(0);
+            s.setId(1L);
+            return s;
+        });
+
+        Score result = scoreService.uploadAndRecognize("XML Title", file);
+
+        assertNotNull(result);
+        assertTrue(result.getAbcContent().startsWith("T: Processing..."));
+        assertTrue(result.getAbcContent().contains("MusicXML conversion"));
     }
 }
