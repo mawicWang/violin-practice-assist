@@ -110,7 +110,12 @@ const loadSoundFont = async (url) => {
     if (!synthesizer) return;
     soundFontLoading.value = true;
     try {
-        await synthesizer.loadSoundFont(url);
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const buffer = await response.arrayBuffer();
+        await synthesizer.soundBankManager.addSoundBank(buffer, "main");
         console.log("SoundFont loaded:", url);
     } catch (e) {
         console.error("Failed to load SoundFont:", url, e);
@@ -187,13 +192,12 @@ const play = async () => {
          return;
     }
 
-    // SpessaSynth loadNewSongList expects array of { binary: Uint8Array, ... } or just ArrayBuffers
-    // `SuppliedMIDIData` can be ArrayBuffer or { name, buffer }
+    // SpessaSynth loadNewSongList expects array of { binary: ArrayBuffer, ... } or just ArrayBuffers (which are deprecated)
+    // `SuppliedMIDIData` can be ArrayBuffer or { name, binary }
     try {
-        // midiBuffer from abcjs is Uint8Array or ArrayBuffer?
-        // It returns Uint8Array usually.
-        // Sequencer expects SuppliedMIDIData[]
-        sequencer.loadNewSongList([midiBuffer.buffer]);
+        // midiBuffer from abcjs is Uint8Array
+        // Sequencer expects SuppliedMIDIData[] which should be { binary: ArrayBuffer }
+        sequencer.loadNewSongList([{ binary: midiBuffer.buffer }]);
         sequencer.play();
         timingCallbacks.start();
         isPlaying.value = true;
