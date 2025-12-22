@@ -1,7 +1,10 @@
 <template>
   <div class="abc-editor-container">
     <div class="editor-pane">
-      <h3>ABC Editor</h3>
+      <div class="header">
+        <h3>ABC Editor</h3>
+        <button @click="handleSave">Save</button>
+      </div>
       <codemirror
         v-model="abcContent"
         placeholder="Enter ABC code here..."
@@ -26,21 +29,16 @@ import { ref, onMounted, watch } from 'vue'
 import { Codemirror } from 'vue-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
 import abcjs from 'abcjs'
+import 'abcjs/abcjs-audio.css'
 
 const props = defineProps({
   initialContent: {
     type: String,
-    default: `T: Cooley's
-M: 4/4
-L: 1/8
-R: reel
-K: Emin
-|:D2|EB{c}BA B2 EB|~B2 AB dBAG|FDAD BDAD|FDAD dAFD|
-EBBA B2 EB|B2 AB defg|afe^c dBAF|DEFD E2:|
-|:gf|eB B2 efge|eB B2 gedB|A2 FA DAFA|A2 FA defg|
-eB B2 eBgB|eB B2 defg|afe^c dBAF|DEFD E2:|`
+    default: ''
   }
 })
+
+const emit = defineEmits(['save'])
 
 const abcContent = ref(props.initialContent)
 const extensions = [oneDark]
@@ -98,6 +96,10 @@ watch(() => props.initialContent, (newVal) => {
     }
 })
 
+const handleSave = () => {
+    emit('save', abcContent.value)
+}
+
 </script>
 
 <style scoped>
@@ -113,6 +115,13 @@ watch(() => props.initialContent, (newVal) => {
   padding: 10px;
   display: flex;
   flex-direction: column;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
 }
 
 .preview-pane {

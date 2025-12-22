@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.concurrent.TimeUnit;
 import java.io.File;
+import java.util.stream.Stream;
+import java.util.Comparator;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,6 +38,31 @@ public class ScoreService {
     }
 
     public Score saveScore(Score score) {
+        // If updating an existing score, perform a smart update to avoid overwriting fields with null
+        if (score.getId() != null) {
+            Optional<Score> existingOpt = scoreRepository.findById(score.getId());
+            if (existingOpt.isPresent()) {
+                Score existing = existingOpt.get();
+                boolean contentChanged = false;
+
+                if (score.getAbcContent() != null) {
+                     if (!score.getAbcContent().equals(existing.getAbcContent()) || existing.getXmlContent() == null) {
+                         existing.setAbcContent(score.getAbcContent());
+                         contentChanged = true;
+                     }
+                }
+
+                if (score.getTitle() != null) {
+                    existing.setTitle(score.getTitle());
+                }
+
+                if (contentChanged) {
+                    convertAbcToXml(existing);
+                }
+
+                return scoreRepository.save(existing);
+            }
+        }
         return scoreRepository.save(score);
     }
 
@@ -78,8 +105,11 @@ public class ScoreService {
         if ("abc".equals(extension)) {
              String abcContent = Files.readString(filePath);
              score.setAbcContent(abcContent);
+             convertAbcToXml(score);
              score = scoreRepository.save(score);
         } else if ("xml".equals(extension) || "musicxml".equals(extension)) {
+             String xmlContent = Files.readString(filePath);
+             score.setXmlContent(xmlContent);
              score.setAbcContent("T: Processing...\nM: 4/4\nK: C\n% Please wait for MusicXML conversion...");
              score = scoreRepository.save(score);
              final Long scoreId = score.getId();
@@ -126,6 +156,10 @@ public class ScoreService {
                 return;
             }
             File musicXmlFile = musicXmlFiles[0];
+
+            // Read and save the generated MusicXML
+            String xmlContent = Files.readString(musicXmlFile.toPath());
+            updateScoreXmlContent(scoreId, xmlContent);
 
             processMusicXml(scoreId, musicXmlFile);
 
@@ -209,6 +243,65 @@ public class ScoreService {
             Score s = scoreOpt.get();
             s.setAbcContent(content);
             scoreRepository.save(s);
+        }
+    }
+
+    private void updateScoreXmlContent(Long scoreId, String xmlContent) {
+        Optional<Score> scoreOpt = scoreRepository.findById(scoreId);
+        if (scoreOpt.isPresent()) {
+            Score s = scoreOpt.get();
+            s.setXmlContent(xmlContent);
+            scoreRepository.save(s);
+        }
+    }
+
+    private void convertAbcToXml(Score score) {
+        Path tempDir = null;
+        try {
+            log.info("Starting ABC to MusicXML conversion for score {}", score.getId());
+            tempDir = Files.createTempDirectory("abc2xml_" + (score.getId() != null ? score.getId() : "new"));
+            File abcFile = tempDir.resolve("score.abc").toFile();
+            Files.writeString(abcFile.toPath(), score.getAbcContent());
+
+            // python tools/abc2xml.py -o <output_dir> <input.abc>
+            String toolScript = "tools/abc2xml.py";
+            if (!new File(toolScript).exists() && new File("../" + toolScript).exists()) {
+                toolScript = "../" + toolScript;
+            }
+
+            // Use python3 if available, fallback to python? Or assume python3 is the requirement.
+            // The environment requirement says "Python 3 with oemer installed".
+            ProcessBuilder pb = new ProcessBuilder("python", toolScript, "-o", tempDir.toString(), abcFile.getAbsolutePath());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            process.getInputStream().transferTo(System.out);
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+
+            if (!finished || process.exitValue() != 0) {
+                log.error("abc2xml failed");
+                return;
+            }
+
+            File[] xmlFiles = tempDir.toFile().listFiles((d, name) -> name.endsWith(".xml") || name.endsWith(".musicxml"));
+            if (xmlFiles != null && xmlFiles.length > 0) {
+                String xmlContent = Files.readString(xmlFiles[0].toPath());
+                score.setXmlContent(xmlContent);
+            } else {
+                log.error("No MusicXML output found in {}", tempDir);
+            }
+
+        } catch (Exception e) {
+            log.error("ABC to MusicXML conversion failed", e);
+        } finally {
+            if (tempDir != null) {
+                try (Stream<Path> walk = Files.walk(tempDir)) {
+                    walk.sorted(Comparator.reverseOrder())
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+                } catch (IOException e) {
+                    log.warn("Failed to clean up temp dir: " + tempDir, e);
+                }
+            }
         }
     }
 }
