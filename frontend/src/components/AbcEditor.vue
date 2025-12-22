@@ -59,7 +59,7 @@ const extensions = [oneDark]
 
 // SoundFonts
 const soundFonts = [
-    { name: 'Violin (Local)', url: './sf2/Violin_LDK1609.sf2' },
+    { name: 'Violin (Local)', url: '/sf2/Violin_LDK1609.sf2' },
     { name: 'Musyng Kite', url: 'https://paulrosen.github.io/midi-js-soundfonts/MusyngKite/' },
     { name: 'FluidR3_GM', url: 'https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/' }
 ]
@@ -110,7 +110,12 @@ const loadSoundFont = async (url) => {
     if (!synthesizer) return;
     soundFontLoading.value = true;
     try {
-        await synthesizer.loadSoundFont(url);
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const buffer = await response.arrayBuffer();
+        await synthesizer.soundBankManager.addSoundBank(buffer, "main");
         console.log("SoundFont loaded:", url);
     } catch (e) {
         console.error("Failed to load SoundFont:", url, e);
@@ -176,24 +181,40 @@ const play = async () => {
     }
 
     // Generate MIDI
-    const midiBuffer = abcjs.synth.getMidiFile(visualObj, { type: 'binary' });
+    // midiOutputType: 'binary' returns a Uint8Array (or Blob in some versions, but Uint8Array is standard for modern abcjs)
+    const midiBuffer = abcjs.synth.getMidiFile(visualObj, { midiOutputType: 'binary' });
     if (!midiBuffer) {
         alert("Could not generate MIDI.");
         return;
     }
 
-    if (midiBuffer.length === 0) {
-         alert("Empty MIDI generated.");
-         return;
+    // Handle different return types
+    let buffer;
+    if (midiBuffer instanceof Uint8Array) {
+         if (midiBuffer.length === 0) {
+             alert("Empty MIDI generated.");
+             return;
+         }
+         // Create a copy of the buffer slice to ensure we have exactly the MIDI data
+         buffer = midiBuffer.buffer.slice(midiBuffer.byteOffset, midiBuffer.byteOffset + midiBuffer.byteLength);
+    } else if (midiBuffer instanceof ArrayBuffer) {
+         buffer = midiBuffer;
+    } else if (typeof midiBuffer === 'string') {
+        // Did we get a link or encoded string?
+        console.warn("abcjs returned string instead of binary:", midiBuffer.substring(0, 50));
+        alert("MIDI generation failed: returned string format.");
+        return;
+    } else {
+        console.warn("Unknown MIDI buffer type:", midiBuffer);
+        alert("MIDI generation failed: unknown format.");
+        return;
     }
 
-    // SpessaSynth loadNewSongList expects array of { binary: Uint8Array, ... } or just ArrayBuffers
-    // `SuppliedMIDIData` can be ArrayBuffer or { name, buffer }
+    // SpessaSynth loadNewSongList expects array of { binary: ArrayBuffer, ... } or just ArrayBuffers (which are deprecated)
+    // `SuppliedMIDIData` can be ArrayBuffer or { name, binary }
     try {
-        // midiBuffer from abcjs is Uint8Array or ArrayBuffer?
-        // It returns Uint8Array usually.
-        // Sequencer expects SuppliedMIDIData[]
-        sequencer.loadNewSongList([midiBuffer.buffer]);
+        // Sequencer expects SuppliedMIDIData[] which should be { binary: ArrayBuffer }
+        sequencer.loadNewSongList([{ binary: buffer }]);
         sequencer.play();
         timingCallbacks.start();
         isPlaying.value = true;
