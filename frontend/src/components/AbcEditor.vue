@@ -59,7 +59,7 @@ const extensions = [oneDark]
 
 // SoundFonts
 const soundFonts = [
-    { name: 'Violin (Local)', url: './sf2/Violin_LDK1609.sf2' },
+    { name: 'Violin (Local)', url: '/sf2/Violin_LDK1609.sf2' },
     { name: 'Musyng Kite', url: 'https://paulrosen.github.io/midi-js-soundfonts/MusyngKite/' },
     { name: 'FluidR3_GM', url: 'https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/' }
 ]
