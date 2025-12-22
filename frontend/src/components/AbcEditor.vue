@@ -195,9 +195,14 @@ const play = async () => {
     // SpessaSynth loadNewSongList expects array of { binary: ArrayBuffer, ... } or just ArrayBuffers (which are deprecated)
     // `SuppliedMIDIData` can be ArrayBuffer or { name, binary }
     try {
-        // midiBuffer from abcjs is Uint8Array
+        // midiBuffer from abcjs is Uint8Array.
+        // We must ensure we pass the exact ArrayBuffer slice, not the whole underlying buffer if it's a view.
+        // Also abcjs might return a Blob if not configured correctly, but here we assume Uint8Array as per common usage.
+        // To be safe, we create a new ArrayBuffer from the Uint8Array.
+        const buffer = midiBuffer.buffer.slice(midiBuffer.byteOffset, midiBuffer.byteOffset + midiBuffer.byteLength);
+
         // Sequencer expects SuppliedMIDIData[] which should be { binary: ArrayBuffer }
-        sequencer.loadNewSongList([{ binary: midiBuffer.buffer }]);
+        sequencer.loadNewSongList([{ binary: buffer }]);
         sequencer.play();
         timingCallbacks.start();
         isPlaying.value = true;
