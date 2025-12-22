@@ -17,6 +17,7 @@
     "element-plus": "^2.13.0",
     "opensheetmusicdisplay": "^1.9.3",
     "osmd-audio-player": "^0.7.0",
+    "spessasynth_lib": "^4.0.19",
     "vue": "^3.5.24",
     "vue-codemirror": "^6.1.1"
   },
