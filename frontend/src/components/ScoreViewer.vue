@@ -3,7 +3,7 @@
     <div v-if="loading">Loading score...</div>
     <div v-else-if="error">Error: {{ error }}</div>
     <div v-else>
-      <div v-if="xmlContent" class="xml-download">
+      <div class="xml-download">
          <button @click="downloadXml">Download MusicXML</button>
       </div>
       <AbcEditor :initial-content="abcContent" @save="onSave" />
@@ -66,8 +66,37 @@ const onSave = async (newContent) => {
     }
 };
 
-const downloadXml = () => {
-    if (!xmlContent.value) return;
+const downloadXml = async () => {
+    if (!xmlContent.value) {
+        // Try to generate it by saving
+        if (!abcContent.value) {
+            alert("No content to download.");
+            return;
+        }
+
+        // Notify user if it might take a moment
+        const confirmGen = confirm("MusicXML is not yet generated. Do you want to generate it now? This will save the current score.");
+        if (!confirmGen) return;
+
+        try {
+            loading.value = true;
+            await axios.post('/api/scores/save', {
+                id: props.scoreId,
+                abcContent: abcContent.value
+            });
+            await loadScore();
+            if (!xmlContent.value) {
+                alert("Failed to generate MusicXML. Please try again later.");
+                return;
+            }
+        } catch (e) {
+            console.error("Error generating XML", e);
+            alert("Error generating MusicXML.");
+            loading.value = false; // ensure loading is turned off if we don't reload successfully
+            return;
+        }
+    }
+
     const blob = new Blob([xmlContent.value], { type: 'application/vnd.recordare.musicxml+xml' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
