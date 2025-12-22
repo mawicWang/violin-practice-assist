@@ -181,26 +181,38 @@ const play = async () => {
     }
 
     // Generate MIDI
-    const midiBuffer = abcjs.synth.getMidiFile(visualObj, { type: 'binary' });
+    // midiOutputType: 'binary' returns a Uint8Array (or Blob in some versions, but Uint8Array is standard for modern abcjs)
+    const midiBuffer = abcjs.synth.getMidiFile(visualObj, { midiOutputType: 'binary' });
     if (!midiBuffer) {
         alert("Could not generate MIDI.");
         return;
     }
 
-    if (midiBuffer.length === 0) {
-         alert("Empty MIDI generated.");
-         return;
+    // Handle different return types
+    let buffer;
+    if (midiBuffer instanceof Uint8Array) {
+         if (midiBuffer.length === 0) {
+             alert("Empty MIDI generated.");
+             return;
+         }
+         // Create a copy of the buffer slice to ensure we have exactly the MIDI data
+         buffer = midiBuffer.buffer.slice(midiBuffer.byteOffset, midiBuffer.byteOffset + midiBuffer.byteLength);
+    } else if (midiBuffer instanceof ArrayBuffer) {
+         buffer = midiBuffer;
+    } else if (typeof midiBuffer === 'string') {
+        // Did we get a link or encoded string?
+        console.warn("abcjs returned string instead of binary:", midiBuffer.substring(0, 50));
+        alert("MIDI generation failed: returned string format.");
+        return;
+    } else {
+        console.warn("Unknown MIDI buffer type:", midiBuffer);
+        alert("MIDI generation failed: unknown format.");
+        return;
     }
 
     // SpessaSynth loadNewSongList expects array of { binary: ArrayBuffer, ... } or just ArrayBuffers (which are deprecated)
     // `SuppliedMIDIData` can be ArrayBuffer or { name, binary }
     try {
-        // midiBuffer from abcjs is Uint8Array.
-        // We must ensure we pass the exact ArrayBuffer slice, not the whole underlying buffer if it's a view.
-        // Also abcjs might return a Blob if not configured correctly, but here we assume Uint8Array as per common usage.
-        // To be safe, we create a new ArrayBuffer from the Uint8Array.
-        const buffer = midiBuffer.buffer.slice(midiBuffer.byteOffset, midiBuffer.byteOffset + midiBuffer.byteLength);
-
         // Sequencer expects SuppliedMIDIData[] which should be { binary: ArrayBuffer }
         sequencer.loadNewSongList([{ binary: buffer }]);
         sequencer.play();
