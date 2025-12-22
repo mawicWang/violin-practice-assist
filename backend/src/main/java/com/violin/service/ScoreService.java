@@ -61,20 +61,38 @@ public class ScoreService {
             Files.createDirectories(uploadPath);
         }
 
-        String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        String originalFilename = file.getOriginalFilename();
+        String filename = System.currentTimeMillis() + "_" + originalFilename;
         Path filePath = uploadPath.resolve(filename);
         Files.copy(file.getInputStream(), filePath);
 
         Score score = new Score();
         score.setTitle(title);
         score.setOriginalImagePath(filePath.toString());
-        score.setAbcContent("T: Processing...\nM: 4/4\nK: C\n% Please wait for OMR processing..."); // Temporary content
-        score = scoreRepository.save(score);
 
-        // Run OMR in background
-        final Long scoreId = score.getId();
-        final String imagePath = filePath.toAbsolutePath().toString();
-        new Thread(() -> processImage(scoreId, imagePath)).start();
+        String extension = "";
+        if (originalFilename != null && originalFilename.contains(".")) {
+             extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+        }
+
+        if ("abc".equals(extension)) {
+             String abcContent = Files.readString(filePath);
+             score.setAbcContent(abcContent);
+             score = scoreRepository.save(score);
+        } else if ("xml".equals(extension) || "musicxml".equals(extension)) {
+             score.setAbcContent("T: Processing...\nM: 4/4\nK: C\n% Please wait for MusicXML conversion...");
+             score = scoreRepository.save(score);
+             final Long scoreId = score.getId();
+             final String xmlPath = filePath.toAbsolutePath().toString();
+             new Thread(() -> processMusicXml(scoreId, new File(xmlPath))).start();
+        } else {
+             score.setAbcContent("T: Processing...\nM: 4/4\nK: C\n% Please wait for OMR processing...");
+             score = scoreRepository.save(score);
+             // Run OMR in background
+             final Long scoreId = score.getId();
+             final String imagePath = filePath.toAbsolutePath().toString();
+             new Thread(() -> processImage(scoreId, imagePath)).start();
+        }
 
         return score;
     }
@@ -108,6 +126,25 @@ public class ScoreService {
                 return;
             }
             File musicXmlFile = musicXmlFiles[0];
+
+            processMusicXml(scoreId, musicXmlFile);
+
+            // Cleanup temp dir (optional, maybe keep for debug)
+            // FileUtils.deleteDirectory(tempDir.toFile());
+
+        } catch (Exception e) {
+            log.error("OMR Process Exception", e);
+             updateScoreContent(scoreId, "T: Error\n% OMR processing failed: " + e.getMessage());
+        }
+    }
+
+    private void processMusicXml(Long scoreId, File musicXmlFile) {
+        try {
+            log.info("Starting MusicXML processing for score {}", scoreId);
+            // We use the same temp dir logic or create new?
+            // Better create a new temp dir for xml2abc if we want to be safe or reuse if passed.
+            // For simplicity and since we don't pass tempDir around, create a new one.
+            Path tempDir = Files.createTempDirectory("xml2abc_" + scoreId);
 
             // 2. Run xml2abc.py
             // python tools/xml2abc.py -o <output_dir> <input.musicxml>
@@ -158,14 +195,11 @@ public class ScoreService {
 
             String abcContent = Files.readString(abcPath);
             updateScoreContent(scoreId, abcContent);
-            log.info("OMR finished for score {}", scoreId);
-
-            // Cleanup temp dir (optional, maybe keep for debug)
-            // FileUtils.deleteDirectory(tempDir.toFile());
+            log.info("MusicXML to ABC finished for score {}", scoreId);
 
         } catch (Exception e) {
-            log.error("OMR Process Exception", e);
-             updateScoreContent(scoreId, "T: Error\n% OMR processing failed: " + e.getMessage());
+            log.error("MusicXML Process Exception", e);
+             updateScoreContent(scoreId, "T: Error\n% MusicXML processing failed: " + e.getMessage());
         }
     }
 
