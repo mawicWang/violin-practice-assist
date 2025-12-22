@@ -67,7 +67,13 @@ const renderAbc = () => {
     }
 
     const createSynth = new abcjs.synth.CreateSynth();
-    createSynth.init({ visualObj: visualObj[0] }).then(() => {
+    createSynth.init({
+        visualObj: visualObj[0],
+        options: {
+          soundFontUrl: "https://paulrosen.github.io/midi-js-soundfonts/MusyngKite/",
+          // soundFontUrl: "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/",
+        },
+      }).then(() => {
         synthControl.setTune(visualObj[0], false, {}).then(() => {
             console.log("Audio loaded")
         }).catch((error) => {

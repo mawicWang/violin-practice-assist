@@ -1,0 +1,17 @@
+X:1
+T: 我和我的祖国
+C:Transcribed by Oemer
+L:1/8
+M:6/8
+I:linebreak $
+K:D
+V:1
+%%MIDI program 40
+|:$ v(ABA) (GFE) | D3 A,3 | v(DFd) (cBF) | A6 |
+$ v(BcB) (AGF) | E3 B,3 | v(CB,A,) (ADE) | uF6 | 
+$ v(ABA) (GFE) | D3 A,3 | v(DFd) (ced) | vB6 |
+$ u(dcB) A3 | u(BAG) vF3 | u(C2 B,) v(A,2 E) |uD6 |
+$ v(def) (edB) |[M:9/8] (cBF) A6 |[M:6/8] v(def) (edB) |[M:9/8] (cAF) uB6 |
+$ v(AGF) E3 | (CB,A,) F3 | vG3 (E2 D) | vD6 :|
+$ v(def) (edB) | [M:9/8] (cBF) (A3 A3) | [M:6/8] v(def) (edB) | [M:9/8] (cAF) B6 |
+$ v(AGF) E3 | (CB,A,) F3 | vG3 ue2 d | v(d6 | (d6) | d6) |
