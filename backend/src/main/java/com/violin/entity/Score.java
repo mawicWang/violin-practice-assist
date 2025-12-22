@@ -19,6 +19,10 @@ public class Score {
     @Column(columnDefinition = "TEXT")
     private String abcContent;
 
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String xmlContent;
+
     private String originalImagePath;
 
     private LocalDateTime createdAt;
